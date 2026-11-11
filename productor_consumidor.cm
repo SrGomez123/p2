@@ -1,0 +1,47 @@
+const int CAPACIDAD = 5;
+int buffer[CAPACIDAD];
+int entrada = 0;
+int salida = 0;
+
+/* Declaración de los 3 semáforos necesarios para sincronización y exclusión mutua */
+semaphore mutex = 1;      /* Exclusión mutua para modificar los índices del buffer */
+semaphore huecos = 5;     /* Sincronización: lleva la cuenta de los espacios libres */
+semaphore elementos = 0;  /* Sincronización: lleva la cuenta de los elementos producidos */
+
+void productor() {
+    int dato = 1;
+    while (1) {
+        wait(huecos);      /* Bloquea si el buffer está lleno (0 huecos) */
+        wait(mutex);       /* Entra a la sección crítica */
+
+        buffer[entrada] = dato;
+        entrada = (entrada + 1) % CAPACIDAD;
+        dato = dato + 1;
+
+        signal(mutex);     /* Sale de la sección crítica */
+        signal(elementos); /* Avisa al consumidor que hay un elemento nuevo */
+    }
+}
+
+void consumidor() {
+    int dato_leido;
+    while (1) {
+        wait(elementos);   /* Bloquea si el buffer está vacío (0 elementos) */
+        wait(mutex);       /* Entra a la sección crítica */
+
+        dato_leido = buffer[salida];
+        buffer[salida] = 0; /* Limpiamos visualmente la celda para verlo en la interfaz */
+        salida = (salida + 1) % CAPACIDAD;
+
+        signal(mutex);     /* Sale de la sección crítica */
+        signal(huecos);    /* Avisa al productor que hay un hueco nuevo */
+    }
+}
+
+void main() {
+    /* cobegin lanza ambos procesos de forma concurrente en JBACI */
+    cobegin {
+        productor();
+        consumidor();
+    }
+}
